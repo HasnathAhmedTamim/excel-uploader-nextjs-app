@@ -63,23 +63,38 @@ export default function ExcelUploader() {
   };
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
-      <h2>Upload your Excel File</h2>
-      <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} />
+    <div className="flex items-center justify-center min-h-screen bg-white p-4">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md border border-gray-300">
+        <h1 className="text-2xl font-bold text-black mb-2">Upload Excel</h1>
+        <p className="text-black mb-6 text-sm">Upload your file and submit data</p>
 
-      {jsonData.length > 0 && (
-        <>
-          <button onClick={handleSubmit} style={{ padding: "10px 20px", cursor: "pointer", backgroundColor: "#4CAF50", color: "white", border: "none", borderRadius: "5px", marginTop: "10px" }}>
-            Confirm & Submit
-          </button>
-        </>
-      )}
+        <input
+          type="file"
+          accept=".xlsx, .xls"
+          onChange={handleFileUpload}
+          className="w-full mb-4 p-2 border border-gray-300 rounded text-black"
+        />
 
-      {submitted && apiResponse && (
-        <>
-          <h3>✅ API Response:</h3>
-        </>
-      )}
+        {jsonData.length > 0 && (
+          <>
+            <div className="bg-white p-3 rounded mb-4 text-black text-sm border border-gray-300">
+              ✅ {jsonData.length} rows ready
+            </div>
+            <button
+              onClick={handleSubmit}
+              className="w-full bg-black text-white py-2 rounded font-bold hover:bg-gray-800"
+            >
+              Submit
+            </button>
+          </>
+        )}
+
+        {submitted && apiResponse && (
+          <div className="bg-white p-3 rounded text-black text-sm mt-4 border border-gray-300">
+            ✅ Success! Data submitted.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

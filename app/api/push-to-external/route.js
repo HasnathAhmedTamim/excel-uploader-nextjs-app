@@ -37,6 +37,14 @@ export async function POST(req) {
     // If no API configured, return mock success for testing
     if (!apiUrl || apiUrl.includes("localhost:3000/api/mock")) {
       console.log("✅ Returning mock response (no external API configured)");
+      
+      // Store data for viewing later
+      const storeResponse = await fetch("http://localhost:3000/api/submitted-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(excelJson),
+      });
+      
       return Response.json({
         success: true,
         message: "✅ Data received successfully (mock mode)",
@@ -69,7 +77,25 @@ export async function POST(req) {
     const result = await response.json();
     console.log("✅ External API response:", result);
 
-    // 5️⃣ Send response back to frontend
+    // 5️⃣ Store submission locally
+    try {
+      const storeResponse = await fetch("http://localhost:3000/api/submitted-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(excelJson),
+      });
+      
+      if (storeResponse.ok) {
+        console.log("✅ Data also stored in submitted-data");
+      } else {
+        console.warn("⚠️ Data stored externally but local storage failed");
+      }
+    } catch (storageError) {
+      console.warn("⚠️ Could not store locally:", storageError.message);
+      // Don't fail the entire request if local storage fails
+    }
+
+    // 6️⃣ Send response back to frontend
     return Response.json({
       success: true,
       message: "Data sent to external API",
