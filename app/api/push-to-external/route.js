@@ -1,110 +1,88 @@
-export async function GET(req) {
-  return Response.json({
-    success: true,
-    message: "✅ API is working (GET)",
-    rowsProcessed: 0,
-    note: "Send POST request with Excel data to upload",
-  });
-}
-
 export async function POST(req) {
   try {
-    console.log("📥 Received request to /api/push-to-external");
+    const excelJson = await req.json();
     
-    // 1️⃣ Read Excel JSON from frontend
-    let excelJson;
-    try {
-      excelJson = await req.json();
-      console.log("✅ JSON parsed successfully:", excelJson);
-    } catch (e) {
-      console.error("❌ Failed to parse JSON:", e.message);
-      return Response.json(
-        {
-          success: false,
-          message: "Failed to parse request body",
-          error: e.message,
-        },
-        { status: 400 }
-      );
+    // 🔍 DEBUG: Log what we received from Excel
+    console.log("📥 Raw Excel JSON received:");
+    if (Array.isArray(excelJson) && excelJson.length > 0) {
+      console.log("  First row keys:", Object.keys(excelJson[0]));
+      console.log("  First row data:", JSON.stringify(excelJson[0], null, 2));
+    }
+    
+    const apiUrl = process.env.EXTERNAL_API_URL || "http://103.12.205.81:8890/api/v1/addContactDynamic";
+    const userId = process.env.EXTERNAL_USER_ID || "6415f8dd-57aa-42b1-99ce-c025583e8323";
+
+    // Normalize contacts: accept either array of rows or { pico_contact: [...] }
+    const toStr = (v) => {
+      if (v === undefined || v === null) return "";
+      // Handle NaN values from Excel
+      if (typeof v === "number" && isNaN(v)) return "";
+      let str = String(v).trim();
+      // Handle scientific notation ONLY if it matches pattern: digits + E/e + +/- + digits
+      // This prevents false positives like "example" being detected as scientific notation
+      const scientificRegex = /^\d+\.?\d*[eE][+\-]?\d+$/;
+      if (scientificRegex.test(str)) {
+        try {
+          const num = parseFloat(str);
+          if (isNaN(num)) return "";
+          str = Math.trunc(num).toString();
+        } catch (e) {
+          // If conversion fails, keep original
+        }
+      }
+      return str === "NaN" ? "" : str;
+    };
+    const normalizeContact = (row) => {
+      return {
+        name: toStr(row.name ?? row.Name ?? row.fullname ?? row.FullName),
+        number: toStr(row.number ?? row.Number ?? row.phone ?? row.Phone ?? row.contact ?? row.Contact),
+        mail: toStr(row.mail ?? row.Mail ?? row.email ?? row.Email),
+        country: toStr(row.country ?? row.Country),
+      };
+    };
+
+    let picoContacts = [];
+    if (Array.isArray(excelJson)) {
+      picoContacts = excelJson.map(normalizeContact);
+    } else if (excelJson && Array.isArray(excelJson.pico_contact)) {
+      picoContacts = excelJson.pico_contact.map(normalizeContact);
     }
 
-    // 2️⃣ Get API details from environment variables
-    const apiUrl = process.env.EXTERNAL_API_URL;
-    const apiKey = process.env.EXTERNAL_API_KEY;
+    // Drop completely empty rows (no number and no mail) to avoid bad payloads
+    picoContacts = picoContacts.filter((c) => c.number || c.mail);
 
-    console.log("🔧 Config - API URL:", apiUrl ? "Set" : "Not set");
-
-    // If no API configured, return mock success for testing
-    if (!apiUrl || apiUrl.includes("localhost:3000/api/mock")) {
-      console.log("✅ Returning mock response (no external API configured)");
-      
-      // Store data for viewing later
-      const storeResponse = await fetch("http://localhost:3000/api/submitted-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(excelJson),
-      });
-      
-      return Response.json({
-        success: true,
-        message: "✅ Data received successfully (mock mode)",
-        rowsProcessed: Array.isArray(excelJson) ? excelJson.length : 0,
-        mockData: excelJson,
-      });
+    if (!picoContacts.length) {
+      return Response.json({ success: false, message: "No contacts to send" }, { status: 400 });
     }
 
-    console.log(`📤 Sending ${Array.isArray(excelJson) ? excelJson.length : "?"} rows to: ${apiUrl}`);
+    const payload = {
+      user_id: userId,
+      pico_contact: picoContacts,
+    };
 
-    // 3️⃣ Send data to external API
+    console.log("📤 Sending to", apiUrl);
+    console.log("Payload:", JSON.stringify(payload, null, 2));
+
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(apiKey && { "Authorization": `Bearer ${apiKey}` }),
       },
-      body: JSON.stringify({
-        data: excelJson,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    // Check if response is ok
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API returned ${response.status}: ${errorText}`);
-    }
-
-    // 4️⃣ Read their response
     const result = await response.json();
-    console.log("✅ External API response:", result);
+    console.log("✅ Response:", result);
 
-    // 5️⃣ Store submission locally
-    try {
-      const storeResponse = await fetch("http://localhost:3000/api/submitted-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(excelJson),
-      });
-      
-      if (storeResponse.ok) {
-        console.log("✅ Data also stored in submitted-data");
-      } else {
-        console.warn("⚠️ Data stored externally but local storage failed");
-      }
-    } catch (storageError) {
-      console.warn("⚠️ Could not store locally:", storageError.message);
-      // Don't fail the entire request if local storage fails
-    }
-
-    // 6️⃣ Send response back to frontend
     return Response.json({
       success: true,
       message: "Data sent to external API",
       externalResponse: result,
+      sentContacts: picoContacts,
+      sentCount: picoContacts.length,
     });
   } catch (error) {
-    console.error("❌ Error in POST /api/push-to-external:", error.message);
-    console.error("Stack:", error.stack);
-    
+    console.error("❌ Error:", error);
     return Response.json(
       {
         success: false,

@@ -4,13 +4,24 @@ let submittedDataStore = [];
 export async function POST(req) {
   try {
     const excelJson = await req.json();
-    
+
+    // Normalize: accept either an array of rows or an object with pico_contact
+    let rows = [];
+    if (Array.isArray(excelJson)) {
+      rows = excelJson;
+    } else if (excelJson && Array.isArray(excelJson.pico_contact)) {
+      rows = excelJson.pico_contact;
+    } else if (excelJson) {
+      // Fallback: wrap single object
+      rows = [excelJson];
+    }
+
     // Store the data with timestamp
     const dataWithTimestamp = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
-      rows: excelJson,
-      rowCount: Array.isArray(excelJson) ? excelJson.length : 0
+      rows,
+      rowCount: rows.length,
     };
     
     submittedDataStore.push(dataWithTimestamp);

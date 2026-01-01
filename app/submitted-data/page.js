@@ -87,28 +87,43 @@ export default function SubmittedData() {
                       <p className="text-sm text-black">Rows: {submission.rowCount}</p>
                     </div>
 
-                    {/* Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse text-sm">
-                        <thead>
-                          <tr className="bg-gray-200">
-                            {submission.rows.length > 0 &&
-                              Object.keys(submission.rows[0]).map((key) => (
-                                <th key={key} className="border border-gray-300 p-2 text-left font-bold text-black">{key}</th>
+                    {(() => {
+                      const rows = Array.isArray(submission.rows)
+                        ? submission.rows
+                        : submission.rows
+                        ? [submission.rows]
+                        : [];
+                      if (!rows.length) {
+                        return (
+                          <div className="bg-white p-3 rounded text-black text-sm border border-gray-300">
+                            No rows available for this submission.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse text-sm">
+                            <thead>
+                              <tr className="bg-gray-200">
+                                {Object.keys(rows[0]).map((key) => (
+                                  <th key={key} className="border border-gray-300 p-2 text-left font-bold text-black">{key}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((row, rowIndex) => (
+                                <tr key={rowIndex} className="border-t hover:bg-gray-50">
+                                  {Object.values(row).map((value, colIndex) => (
+                                    <td key={colIndex} className="border border-gray-300 p-2 text-black">{String(value)}</td>
+                                  ))}
+                                </tr>
                               ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {submission.rows.map((row, rowIndex) => (
-                            <tr key={rowIndex} className="border-t hover:bg-gray-50">
-                              {Object.values(row).map((value, colIndex) => (
-                                <td key={colIndex} className="border border-gray-300 p-2 text-black">{String(value)}</td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>

@@ -1,16 +1,11 @@
 import ExcelUploader from "@/components/ExcelUploader";
-import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="bg-white text-black p-4 min-h-screen">
-      <h1 className="text-center font-bold">Excel Upload App</h1>
-      <div style={{ marginBottom: "20px" }}>
-        <Link href="/submitted-data" className="px-4 py-2 rounded underline">
-          📊 View All Submissions
-        </Link>
-      </div>
-      <ExcelUploader></ExcelUploader>
+    <main style={{ padding: "20px", maxWidth: "900px", margin: "0 auto", fontFamily: "Arial, sans-serif" }}>
+      <h1>📊 Excel to API Upload</h1>
+      <p>Upload an Excel file with contact info (name, number, mail, country) and push to the external API.</p>
+      <ExcelUploader />
     </main>
   );
 }
